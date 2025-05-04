@@ -3,19 +3,15 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <DHT.h>
-#include <LiquidCrystal_I2C.h>
 
 // WiFi credentials
-const char *ssid = "Pocol";
-const char *password = "123456789";
+const char *ssid = "My-Network";
+const char *password = "chaker123456";
 
 // DHT sensor settings
-#define DHTPIN 23
+#define DHTPIN 26
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
-
-// LCD setup
-LiquidCrystal_I2C lcd(0x27, 16, 2);  // I2C address 0x27 (common LCD), 16 columns, 2 rows
 
 // Web server on port 80
 WebServer server(80);
@@ -30,6 +26,7 @@ float readDHTTemperature() {
     Serial.println("Failed to read from DHT sensor!");
     return -1;
   } else {
+    Serial.println("Temperature: " + String(t));
     return t;
   }
 }
@@ -41,6 +38,7 @@ float readDHTHumidity() {
     Serial.println("Failed to read from DHT sensor!");
     return -1;
   } else {
+    Serial.println("Humidity: " + String(h));
     return h;
   }
 }
@@ -97,10 +95,6 @@ void handleDecrease() {
 void setup() {
   Serial.begin(115200);
   dht.begin();
-  
-  // Initialize LCD
-  lcd.init();
-  lcd.backlight();
 
   // Connect to WiFi
   WiFi.mode(WIFI_STA);
@@ -134,27 +128,5 @@ void setup() {
 
 void loop() {
   server.handleClient();
-
-  // Read temperature and humidity
-  float tempC = readDHTTemperature();
-  float humi = readDHTHumidity();
-
-  // Display on LCD
-  lcd.clear();
-  if (isnan(tempC) || isnan(humi)) {
-    lcd.setCursor(0, 0);
-    lcd.print("Failed");
-  } else {
-    lcd.setCursor(0, 0);
-    lcd.print("Temp: ");
-    lcd.print(tempC);  // Display temperature
-    lcd.print("°C");
-
-    lcd.setCursor(0, 1);
-    lcd.print("Humi: ");
-    lcd.print(humi);   // Display humidity
-    lcd.print("%");
-  }
-
-  delay(2000); // Wait 2 seconds before the next reading
+  delay(2);
 }
