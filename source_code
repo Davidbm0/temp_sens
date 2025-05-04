@@ -1,0 +1,132 @@
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <DHT.h>
+
+// WiFi credentials
+const char *ssid = "Pocol";
+const char *password = "123456789";
+
+// DHT sensor settings
+#define DHTPIN 26
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Web server on port 80
+WebServer server(80);
+
+// Target temperature variable
+float targetTemperature = 25.0;
+
+// Function to read temperature from DHT
+float readDHTTemperature() {
+  float t = dht.readTemperature();
+  if (isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return -1;
+  } else {
+    Serial.println("Temperature: " + String(t));
+    return t;
+  }
+}
+
+// Function to read humidity from DHT
+float readDHTHumidity() {
+  float h = dht.readHumidity();
+  if (isnan(h)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return -1;
+  } else {
+    Serial.println("Humidity: " + String(h));
+    return h;
+  }
+}
+
+// Web page handler
+void handleRoot() {
+  char msg[1500];
+  snprintf(msg, 1500,
+           "<html>\
+  <head>\
+    <meta http-equiv='refresh' content='1'/>\
+    <meta name='viewport' content='width=device-width, initial-scale=1'>\
+    <link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.7.2/css/all.css'>\
+    <title>TempSense</title>\
+    <style>\
+    html { font-family: Arial; text-align: center; margin: 50px; }\
+    h2 { font-size: 2.5rem; }\
+    p, form { font-size: 1.5rem; margin: 10px; }\
+    .units { font-size: 1.0rem; }\
+    .dht-labels { font-size: 1.2rem; padding-bottom: 15px; }\
+    button { font-size: 1.2rem; padding: 10px; margin: 5px; }\
+    </style>\
+  </head>\
+  <body>\
+    <h2>TempSense</h2>\
+    <p><i class='fas fa-thermometer-half' style='color:#ca3517;'></i>\
+    <span class='dht-labels'>Temperature:</span> %.2f &deg;C</p>\
+    <p><i class='fas fa-tint' style='color:#00add6;'></i>\
+    <span class='dht-labels'>Humidity:</span> %.2f &#37;</p>\
+    <p><i class='fas fa-cog' style='color:#333;'></i>\
+    <span class='dht-labels'>Target Temperature:</span> %.1f &deg;C</p>\
+    <form action='/increase' method='POST'><button>▲ Increase</button></form>\
+    <form action='/decrease' method='POST'><button>▼ Decrease</button></form>\
+  </body>\
+</html>",
+           readDHTTemperature(), readDHTHumidity(), targetTemperature);
+
+  server.send(200, "text/html", msg);
+}
+
+// Handlers for buttons
+void handleIncrease() {
+  targetTemperature += 0.5;
+  server.sendHeader("Location", "/");
+  server.send(303); // Redirect to root
+}
+
+void handleDecrease() {
+  targetTemperature -= 0.5;
+  server.sendHeader("Location", "/");
+  server.send(303); // Redirect to root
+}
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  // Connect to WiFi
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // Start mDNS
+  if (MDNS.begin("esp32")) {
+    Serial.println("MDNS responder started");
+  }
+
+  // Set up server routes
+  server.on("/", handleRoot);
+  server.on("/increase", HTTP_POST, handleIncrease);
+  server.on("/decrease", HTTP_POST, handleDecrease);
+
+  // Start server
+  server.begin();
+  Serial.println("HTTP server started");
+}
+
+void loop() {
+  server.handleClient();
+  delay(2);
+}
